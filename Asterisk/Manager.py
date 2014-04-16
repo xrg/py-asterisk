@@ -617,6 +617,61 @@ class CoreActions(object):
         return self._translate_response(self.read_response(id))
 
 
+    def IAXShowPeers(self):
+        'Return a list of IAX peers'
+        id = self._write_action('IAXpeerlist')
+        self._translate_response(self.read_response(id))
+        peers = {}
+        have_more = [True,]
+
+        def PeerEntry(self, event):
+            event = self.strip_evinfo(event)
+            name = event.pop('ObjectName')
+            peers[name] = event
+
+        def PeerlistComplete(self, event):
+            have_more[0] = False
+
+        events = Asterisk.Util.EventCollection([ PeerEntry, PeerlistComplete ])
+        self.events += events
+
+        try:
+            while have_more[0]:
+                packet = self._read_packet()
+                self._dispatch_packet(packet)
+        finally:
+            self.events -= events
+        return peers
+
+    def IAXShowRegistry(self):
+        'Return a nested dict of IAX registry.'
+
+        id = self._write_action('IAXregistry')
+        self._translate_response(self.read_response(id))
+        registry = {}
+
+        def RegistryEntry(self, event):
+            event = self.strip_evinfo(event)
+            name = event.pop('Host')
+            registry[name] = event
+
+        def RegistrationsComplete(self, event):
+            stop_flag[0] = True
+
+        events = Asterisk.Util.EventCollection([ RegistryEntry, RegistrationsComplete ])
+        self.events += events
+
+        try:
+            stop_flag = [ False ]
+
+            while stop_flag[0] == False:
+                packet = self._read_packet()
+                self._dispatch_packet(packet)
+
+        finally:
+            self.events -= events
+        return registry
+
     def ListCommands(self):
         'Return a dict of all available <action> => <desc> items.'
 
