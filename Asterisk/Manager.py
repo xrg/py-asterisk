@@ -925,6 +925,31 @@ class CoreActions(object):
         del showpeer['Response']
         return showpeer
 
+    def SipShowPeers(self):
+        'Return a list of SIP peers'
+        id = self._write_action('SIPpeers')
+        self._translate_response(self.read_response(id))
+        peers = {}
+        have_more = [True,]
+
+        def PeerEntry(self, event):
+            event = self.strip_evinfo(event)
+            name = event.pop('ObjectName')
+            peers[name] = event
+
+        def PeerlistComplete(self, event):
+            have_more[0] = False
+
+        events = Asterisk.Util.EventCollection([ PeerEntry, PeerlistComplete ])
+        self.events += events
+
+        try:
+            while have_more[0]:
+                packet = self._read_packet()
+                self._dispatch_packet(packet)
+        finally:
+            self.events -= events
+        return peers
 
     def SipShowRegistry(self):
         'Return a nested dict of SIP registry.'
